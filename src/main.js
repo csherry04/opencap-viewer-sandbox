@@ -4,6 +4,7 @@ import App from './App.vue'
 import vuetify from './plugins/vuetify'
 import router from '@/router'
 import store from '@/store/store.js'
+import { installDemoApi, seedDemoAuth } from '@/util/DemoMode.js'
 import 'roboto-fontface/css/roboto/roboto-fontface.css'
 import '@mdi/font/css/materialdesignicons.css'
 import '@/assets/scss/main.scss'
@@ -68,9 +69,12 @@ Vue.component("ValidationObserver", ValidationObserver);
 
 Vue.config.productionTip = false
 
-axios.defaults.baseURL = process.env.VUE_APP_API_SERVER //"https://api.opencap.ai/"
+axios.defaults.baseURL = process.env.VUE_APP_API_SERVER || '' //"https://api.opencap.ai/"
 // axios.defaults.baseURL = "http://34.219.192.107/"
 // axios.defaults.baseURL = "http://localhost:8000/"
+
+installDemoApi(axios)
+seedDemoAuth(store)
 
 store.dispatch('auth/checkToken').then(() => {
   new Vue({
@@ -80,4 +84,3 @@ store.dispatch('auth/checkToken').then(() => {
     render: h => h(App)
   }).$mount('#app')  
 })
-

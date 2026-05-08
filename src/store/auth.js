@@ -2,6 +2,7 @@ import router from '@/router'
 import axios from 'axios'
 import { apiSuccess, apiError } from "@/util/ErrorMessage.js";
 import Vue from "vue";
+import { isDemoMode, setDemoAuthStorage } from '@/util/DemoMode.js'
 
 export default {
   namespaced: true,
@@ -146,6 +147,20 @@ export default {
         commit('setRememberDeviceFlag', {flag: flag})
     },
     logout ({ commit }) {
+      if (isDemoMode) {
+        setDemoAuthStorage()
+        commit('setLoggedIn', {
+          loggedIn: true,
+          username: 'demo',
+          user_id: 'demo-user-id',
+        })
+        commit('setVerified', {
+          verified: true
+        })
+        router.push({ name: 'SelectSession' })
+        return
+      }
+
       commit('setLoggedIn', {
         loggedIn: false,
         username: '',
