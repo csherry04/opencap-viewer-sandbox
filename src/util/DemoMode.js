@@ -259,7 +259,7 @@ function demoAdapter(config) {
   const method = String(config.method || 'get').toLowerCase()
 
   if (path === '/demo/ik_results.mot') return ok(config, demoMot)
-  if (path === '/demo/visualizer.json') return ok(config, {})
+  if (path === '/demo/visualizer.json') return ok(config, { time: [] })
 
   if (path === '/login/') {
     return ok(config, {
@@ -368,6 +368,7 @@ function demoAdapter(config) {
     const trial = findTrial(trialMatch[1])
     if (!trial) return notFound(config)
     const action = trialMatch[2] || ''
+    if (!action) return ok(config, trial)
     if (action === 'rename') trial.name = parseBody(config.data).trialNewName || trial.name
     if (action === 'trash') trial.trashed = true
     if (action === 'restore') trial.trashed = false
