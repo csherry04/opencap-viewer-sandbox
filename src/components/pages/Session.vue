@@ -233,10 +233,49 @@
                       {{ isMonocularSession ? 'New session same camera' : 'New session, same setup' }}
                   </v-btn>
   
-                  <v-btn small class="mt-4 w-100 session-action-btn" v-show="show_controls" :disabled="busy || state !== 'ready'" @click="newSession">
+                  <v-btn small class="mt-4 w-100 session-action-btn" v-show="show_controls" :disabled="busy || state !== 'ready'" @click="openNewSessionConfirm">
                       <v-icon left small>mdi-plus</v-icon>
                       New session
                   </v-btn>
+
+                  <v-dialog
+                      v-model="new_session_confirm_dialog"
+                      content-class="confirm-dialog"
+                      max-width="500"
+                      :fullscreen="$vuetify.breakpoint.smAndDown">
+                      <v-card>
+                          <v-card-text class="pt-4">
+                              <v-row class="m-0">
+                                  <v-col cols="12" sm="2">
+                                      <v-icon x-large color="orange">mdi-alert-circle</v-icon>
+                                  </v-col>
+                                  <v-col cols="12" sm="10">
+                                      <p class="mb-2">
+                                          Starting a new session will require calibration again.
+                                      </p>
+                                      <p class="mb-0">
+                                          To keep the current calibration and recording setup, choose New session, same setup instead.
+                                      </p>
+                                  </v-col>
+                              </v-row>
+                          </v-card-text>
+                          <v-card-actions>
+                              <v-spacer></v-spacer>
+                              <v-btn
+                                  color="blue darken-1"
+                                  text
+                                  @click="new_session_confirm_dialog = false">
+                                  Cancel
+                              </v-btn>
+                              <v-btn
+                                  color="orange darken-1"
+                                  text
+                                  @click="confirmNewSession">
+                                  Continue
+                              </v-btn>
+                          </v-card-actions>
+                      </v-card>
+                  </v-dialog>
   
                   <v-dialog v-model="dialog" content-class="app-dialog" :width="$vuetify.breakpoint.smAndDown ? '100%' : '500'"
                       max-width="500" :fullscreen="$vuetify.breakpoint.smAndDown">
@@ -391,6 +430,10 @@
             </v-btn>
         </div><!-- end left-wrapper -->
 
+        <div v-if="participantName" class="participant-context participant-context--viewer">
+            <div class="participant-context__label">Participant</div>
+            <div class="participant-context__name">{{ participantName }}</div>
+        </div>
         <div class="main-content d-flex flex-grow-1">
         <!-- Centered Open in App prompt for monocular mobile sessions -->
         <div v-if="showOpenInAppButton && !trial" class="open-in-app-center d-flex flex-column align-center justify-center">
@@ -1053,6 +1096,7 @@
               trial_rename_index: 0,
 
               session_rename_dialog: false,
+              new_session_confirm_dialog: false,
               sessionNewName: '',
 
               trial_modify_tags: false,
@@ -1107,6 +1151,13 @@
           const s = this.session;
           if (!s) return 'Session';
           return s.meta?.sessionName || s.sessionName || (s.id ? String(s.id).split('-')[0] : '') || 'Session';
+        },
+        participantName() {
+          const session = this.session
+          if (!session) return ''
+
+          const name = session.subject_name || (session.subject ? session.name : '') || session.meta?.subject?.id || ''
+          return String(name)
         },
         filteredTrialsWithMenu() {
           return this.filteredTrials.map(trial => ({...trial, isMenuOpen: false}));
@@ -1691,6 +1742,13 @@
       newSession() {
         this.clearAll()
         this.$router.push({name: 'RecordingMode'})
+      },
+      openNewSessionConfirm() {
+        this.new_session_confirm_dialog = true
+      },
+      confirmNewSession() {
+        this.new_session_confirm_dialog = false
+        this.newSession()
       },
       openInApp() {
         if (this.sessionDeepLinkUrl) {
@@ -2566,6 +2624,46 @@
       flex-direction: row;
       overflow: hidden;
       position: relative;
+    }
+
+    .participant-context {
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 6px;
+      padding: 10px 14px;
+      background-color: rgba(20, 20, 20, 0.78);
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
+      color: rgba(255, 255, 255, 0.92);
+      pointer-events: none;
+    }
+
+    .participant-context--viewer {
+      position: fixed;
+      top: calc(var(--app-bar-top-offset, 64px) + 12px);
+      left: calc(250px + (100vw - 250px) / 2);
+      transform: translateX(-50%);
+      z-index: 90;
+      max-width: min(420px, calc(100% - 32px));
+      text-align: center;
+
+      @media (max-width: 1279px) {
+        left: 50%;
+      }
+    }
+
+    .participant-context__label {
+      color: rgba(255, 255, 255, 0.62);
+      font-size: 0.72rem;
+      font-weight: 600;
+      line-height: 1.2;
+      text-transform: uppercase;
+    }
+
+    .participant-context__name {
+      margin-top: 4px;
+      font-size: 1rem;
+      font-weight: 600;
+      line-height: 1.25;
+      overflow-wrap: anywhere;
     }
   
     .mobile-menu-toggle {
