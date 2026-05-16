@@ -78,7 +78,17 @@ const sessions = [
   {
     id: 'demo-session-1',
     sessionName: 'Demo gait session',
-    meta: { sessionName: 'Demo gait session' },
+    meta: {
+      sessionName: 'Demo gait session',
+      settings: {
+        scalingsetup: 'any_pose',
+        posemodel: 'openpose',
+        framerate: 120,
+        openSimModel: 'LaiUhlrich2022_shoulder',
+        augmentermodel: 'v0.2',
+        filterfrequency: '20'
+      }
+    },
     name: 'Demo Subject',
     subject: 'demo-subject-1',
     subject_id: 'demo-subject-1',
@@ -191,7 +201,35 @@ function handleSessionRoute(config, path) {
   }
   if (action === 'calibration_img') return ok(config, { status: 'done', imgs: [] })
   if (action === 'neutral_img') return ok(config, { status: 'done', imgs: [] })
-  if (action === 'set_metadata' || action === 'set_subject' || action === 'get_session_settings') return ok(config, session)
+  if (action === 'set_metadata') {
+    const params = config.params || parseBody(config.data)
+    const settingsParamKeys = {
+      settings_framerate: 'framerate',
+      settings_data_sharing: 'datasharing',
+      settings_pose_model: 'posemodel',
+      settings_openSimModel: 'openSimModel',
+      settings_augmenter_model: 'augmentermodel',
+      settings_filter_frequency: 'filterfrequency',
+      settings_scaling_setup: 'scalingsetup'
+    }
+    session.meta = session.meta || {}
+    session.meta.settings = session.meta.settings || {}
+    Object.keys(params).forEach(key => {
+      const settingKey = settingsParamKeys[key]
+      if (!settingKey) return
+      session.meta.settings[settingKey] = params[key]
+    })
+    if (params.settings_session_name) {
+      session.sessionName = params.settings_session_name
+      session.meta.sessionName = params.settings_session_name
+    }
+    if (params.isMono !== undefined) {
+      session.isMono = params.isMono === true || params.isMono === 'true'
+    }
+    return ok(config, session)
+  }
+  if (action === 'set_subject') return ok(config, session)
+  if (action === 'get_session_settings') return ok(config, { framerates: [60, 120, 240] })
   if (action === 'record') {
     const name = config.params?.name || 'trial'
     const trial = { id: `demo-trial-${trialCounter++}`, name, status: 'done', trashed: false, results: [] }

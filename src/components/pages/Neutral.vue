@@ -552,7 +552,8 @@ export default {
     if (!this.isMonocularMode) {
       apiInfo("You can now record a neutral pose different than the upright standing pose (e.g., sitting). Select 'Any pose' 'Advanced Settings'.", 8000);
     }
-    this.loadSession(this.$route.params.id)
+    await this.loadSession(this.$route.params.id)
+    this.applySameSetupAdvancedSettings()
     if (this.$route.query.autoRecord) {
       this.onNext();
     }
@@ -640,6 +641,32 @@ export default {
       }
       this.loaded_subjects.push(obj)
       this.subject = obj
+    },
+    applySameSetupAdvancedSettings() {
+      if (this.$route.query.sameSetup !== 'true') return
+
+      const settings = this.session?.meta?.settings
+      if (!settings || typeof settings !== 'object') return
+
+      const assignIfPresent = (key, setter) => {
+        if (settings[key] !== undefined && settings[key] !== null && settings[key] !== '') {
+          setter(settings[key])
+        }
+      }
+
+      assignIfPresent('scalingsetup', value => { this.scaling_setup = value })
+      assignIfPresent('posemodel', value => { this.pose_model = value })
+      assignIfPresent('framerate', value => {
+        const parsed = Number(value)
+        this.framerate = Number.isNaN(parsed) ? value : parsed
+      })
+      assignIfPresent('openSimModel', value => { this.openSimModel = value })
+      assignIfPresent('augmentermodel', value => { this.augmenter_model = value })
+      assignIfPresent('filterfrequency', value => {
+        this.filter_frequency = String(value)
+        this.tempFilterFrequency = this.filter_frequency
+        this.componentKey += 1
+      })
     },
     reloadSubjects() {
     },

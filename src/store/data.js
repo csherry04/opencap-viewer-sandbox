@@ -230,7 +230,7 @@ export default {
     setTrialId (state, trialId) {
       state.trialId = trialId
     },
-    setNeutral (state, { subject, data_sharing, scaling_setup, pose_model, openSimModel, augmenter_model, filter_frequency }) {
+    setNeutral (state, { subject, data_sharing, scaling_setup, pose_model, framerate, openSimModel, augmenter_model, filter_frequency }) {
       // state.identifier = identifier
       // state.weight = weight
       // state.height = height
@@ -240,6 +240,7 @@ export default {
       state.data_sharing = data_sharing
       state.scaling_setup = scaling_setup
       state.pose_model = pose_model
+      state.framerate = framerate
       state.openSimModel = openSimModel
       state.augmenter_model = augmenter_model
       state.filter_frequency = filter_frequency
