@@ -151,15 +151,16 @@
                 </v-btn>
 
                   <v-dialog
-                    v-model="advancedSettingsDialog"
+                    :value="advancedSettingsDialog"
                     :width="$vuetify.breakpoint.smAndDown ? '95%' : '700px'"
                     content-class="advanced-settings-dialog app-dialog"
                     max-width="700"
+                    @input="setAdvancedSettingsDialog"
                   >
                     <v-card class="advanced-settings-card">
                       <v-card-actions class="advanced-settings-header justify-space-between align-center">
                         <v-card-title class="advanced-settings-title">Advanced Settings</v-card-title>
-                        <v-btn icon @click="advancedSettingsDialog = false" class="advanced-settings-close-btn" aria-label="Close">
+                        <v-btn icon @click="requestCloseAdvancedSettings" class="advanced-settings-close-btn" aria-label="Close">
                           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="advanced-settings-close-icon">
                             <line x1="18" y1="6" x2="6" y2="18"></line>
                             <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -311,6 +312,23 @@
                         item-value="value"
                         ></v-combobox>
                       </v-card-text>
+                      <v-card-actions class="advanced-settings-footer justify-end">
+                        <v-btn
+                          text
+                          :disabled="savingAdvancedSettings"
+                          @click="requestCloseAdvancedSettings"
+                        >
+                          Close
+                        </v-btn>
+                        <v-btn
+                          color="primary-dark"
+                          :loading="savingAdvancedSettings"
+                          :disabled="savingAdvancedSettings || !hasUnsavedAdvancedSettings"
+                          @click="saveAdvancedSettings"
+                        >
+                          Save
+                        </v-btn>
+                      </v-card-actions>
                     </v-card>
                   </v-dialog>
             </div>
@@ -371,6 +389,23 @@
       @subject-added="submitAddSubject"
     />
 
+    <ConfirmDialog
+      v-model="unsavedAdvancedSettingsDialog"
+      :fullscreen="$vuetify.breakpoint.smAndDown"
+      icon="mdi-alert-circle"
+      icon-color="orange"
+      cancel-text="Discard"
+      confirm-text="Save and Close"
+      confirm-color="primary-dark"
+      :confirm-disabled="savingAdvancedSettings"
+      @cancel="discardAdvancedSettingsChanges"
+      @confirm="saveAdvancedSettingsAndClose">
+      <h3 class="mb-2">Unsaved advanced settings</h3>
+      <p class="mb-0">
+        Press Save to apply these advanced settings to the session before closing.
+      </p>
+    </ConfirmDialog>
+
   </MainLayout>
 </template>
 
@@ -382,13 +417,15 @@ import { playNeutralFinishedSound } from "@/util/SoundMessage.js";
 import MainLayout from "@/layout/MainLayout";
 import ExampleImage from "@/components/ui/ExampleImage";
 import DialogComponent from '@/components/ui/SubjectDialog.vue'
+import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
 
 export default {
   name: "Neutral",
   components: {
     MainLayout,
     ExampleImage,
-    DialogComponent
+    DialogComponent,
+    ConfirmDialog
   },
   data() {
     return {
@@ -402,6 +439,9 @@ export default {
         subject_tags: null,
       },
       advancedSettingsDialog: false,
+      unsavedAdvancedSettingsDialog: false,
+      savingAdvancedSettings: false,
+      savedAdvancedSettingsSnapshot: null,
       selected: null,
       subject_query: "",
       subject_loading: false,
@@ -523,6 +563,20 @@ export default {
     errorsConsole() {
       return this.errors;
     },
+    currentAdvancedSettings() {
+      return {
+        scaling_setup: this.scaling_setup,
+        pose_model: this.pose_model,
+        framerate: this.framerate,
+        openSimModel: this.openSimModel,
+        augmenter_model: this.augmenter_model,
+        filter_frequency: this.filter_frequency,
+      }
+    },
+    hasUnsavedAdvancedSettings() {
+      if (!this.savedAdvancedSettingsSnapshot) return false
+      return JSON.stringify(this.currentAdvancedSettings) !== JSON.stringify(this.savedAdvancedSettingsSnapshot)
+    },
     backButtonLabel() {
       if (this.isMonocularMode && this.$route.query.fromDevice === 'true') {
         return 'Back';
@@ -553,7 +607,8 @@ export default {
       apiInfo("You can now record a neutral pose different than the upright standing pose (e.g., sitting). Select 'Any pose' 'Advanced Settings'.", 8000);
     }
     await this.loadSession(this.$route.params.id)
-    this.applySameSetupAdvancedSettings()
+    this.applySavedAdvancedSettings()
+    this.updateSavedAdvancedSettingsSnapshot()
     if (this.$route.query.autoRecord) {
       this.onNext();
     }
@@ -642,9 +697,7 @@ export default {
       this.loaded_subjects.push(obj)
       this.subject = obj
     },
-    applySameSetupAdvancedSettings() {
-      if (this.$route.query.sameSetup !== 'true') return
-
+    applySavedAdvancedSettings() {
       const settings = this.session?.meta?.settings
       if (!settings || typeof settings !== 'object') return
 
@@ -667,6 +720,68 @@ export default {
         this.tempFilterFrequency = this.filter_frequency
         this.componentKey += 1
       })
+    },
+    updateSavedAdvancedSettingsSnapshot() {
+      this.savedAdvancedSettingsSnapshot = {...this.currentAdvancedSettings}
+    },
+    getAdvancedSettingsMetadataParams() {
+      return {
+        settings_scaling_setup: this.scaling_setup,
+        settings_pose_model: this.pose_model,
+        settings_framerate: this.framerate,
+        settings_openSimModel: this.openSimModel,
+        settings_augmenter_model: this.augmenter_model,
+        settings_filter_frequency: this.filter_frequency,
+      }
+    },
+    setAdvancedSettingsDialog(value) {
+      if (value) {
+        this.advancedSettingsDialog = true
+      } else {
+        this.requestCloseAdvancedSettings()
+      }
+    },
+    requestCloseAdvancedSettings() {
+      if (this.hasUnsavedAdvancedSettings) {
+        this.unsavedAdvancedSettingsDialog = true
+      } else {
+        this.advancedSettingsDialog = false
+      }
+    },
+    discardAdvancedSettingsChanges() {
+      if (this.savedAdvancedSettingsSnapshot) {
+        Object.assign(this, this.savedAdvancedSettingsSnapshot)
+        this.tempFilterFrequency = this.filter_frequency
+        this.componentKey += 1
+      }
+      this.unsavedAdvancedSettingsDialog = false
+      this.advancedSettingsDialog = false
+    },
+    async saveAdvancedSettings() {
+      this.savingAdvancedSettings = true
+      try {
+        await axios.get(
+          `/sessions/${this.session.id}/set_metadata/`,
+          {
+            params: this.getAdvancedSettingsMetadataParams(),
+          }
+        )
+        await this.loadSession(this.session.id)
+        this.applySavedAdvancedSettings()
+        this.updateSavedAdvancedSettingsSnapshot()
+        apiSuccess("Advanced settings saved.")
+      } catch (error) {
+        apiError(error)
+      } finally {
+        this.savingAdvancedSettings = false
+      }
+    },
+    async saveAdvancedSettingsAndClose() {
+      await this.saveAdvancedSettings()
+      if (!this.hasUnsavedAdvancedSettings) {
+        this.unsavedAdvancedSettingsDialog = false
+        this.advancedSettingsDialog = false
+      }
     },
     reloadSubjects() {
     },
@@ -764,13 +879,7 @@ export default {
                 {
                   params: {
                     settings_data_sharing: this.data_sharing,
-                    settings_scaling_setup: this.scaling_setup,
-                    settings_pose_model: this.pose_model,
-                    settings_framerate: this.framerate,
                     settings_session_name: this.sessionName,
-                    settings_openSimModel: this.openSimModel,
-                    settings_augmenter_model: this.augmenter_model,
-                    settings_filter_frequency: this.filter_frequency,
                   },
                 }
               );
@@ -1291,7 +1400,7 @@ export default {
     max-height: 90vh;
     display: flex;
     flex-direction: column;
-    padding-bottom: 48px;
+    padding-bottom: 0;
     padding-top: 0;
     min-height: auto;
     background-color: #252525 !important;
@@ -1486,8 +1595,8 @@ export default {
     background: transparent !important;
   }
   
-  .v-card__actions {
-    .v-btn {
+  .v-card__actions.advanced-settings-header {
+    .v-btn.advanced-settings-close-btn {
       min-width: 40px;
       width: 40px;
       height: 40px;
@@ -1511,6 +1620,31 @@ export default {
     .v-btn::before,
     .v-btn .v-ripple__container {
       color: #ffffff !important;
+    }
+  }
+
+  .v-card__actions.advanced-settings-footer {
+    position: sticky;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 20;
+    padding: 16px;
+    gap: 12px;
+    background-color: #252525 !important;
+    border-top: 1px solid rgba(255,255,255,0.08);
+
+    .v-btn {
+      min-width: 96px;
+      height: 40px;
+      padding: 0 18px;
+      border-radius: 4px;
+      text-transform: none;
+    }
+
+    .v-btn:not(.primary-dark) {
+      color: #ffffff !important;
+      background: rgba(255,255,255,0.08) !important;
     }
   }
   
