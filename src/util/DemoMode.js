@@ -134,6 +134,26 @@ const sessions = [
       { id: 'demo-trial-neutral-mono', name: 'neutral', status: 'done', trashed: false, results: [] },
       { id: 'demo-trial-squat-1', name: 'squat_01', status: 'done', trashed: false, results: [{ tag: 'ik_results', media: '/demo/ik_results.mot' }] }
     ]
+  },
+  {
+    id: 'demo-session-trashed',
+    sessionName: 'Removed demo session',
+    meta: { sessionName: 'Removed demo session' },
+    name: 'Demo Subject',
+    subject: 'demo-subject-1',
+    subject_id: 'demo-subject-1',
+    subject_name: 'Demo Subject',
+    user: 'demo-user-id',
+    created_at: '2026-05-07T14:00:00Z',
+    trials_count: 2,
+    isMono: false,
+    public: false,
+    trashed: true,
+    qrcode: qrDataUrl('demo-session-trashed'),
+    trials: [
+      { id: 'demo-trial-trashed-calibration', name: 'calibration', status: 'done', trashed: false, results: [] },
+      { id: 'demo-trial-trashed-neutral', name: 'neutral', status: 'done', trashed: false, results: [] }
+    ]
   }
 ]
 
@@ -336,7 +356,15 @@ function demoAdapter(config) {
   if (path === '/sessions/valid/') {
     const body = parseBody(config.data)
     const includeTrashed = !!body.include_trashed
-    const visible = sessions.filter(session => includeTrashed || !session.trashed)
+    const onlyTrashed = !!body.only_trashed
+    let visible = sessions
+    if (onlyTrashed) {
+      visible = sessions.filter(session =>
+        session.trashed || session.trials.some(trial => trial.trashed)
+      )
+    } else if (!includeTrashed) {
+      visible = sessions.filter(session => !session.trashed)
+    }
     return ok(config, { sessions: visible, total: visible.length })
   }
   if (path === '/sessions/search_sessions/') {
