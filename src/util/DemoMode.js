@@ -154,6 +154,27 @@ const sessions = [
       { id: 'demo-trial-trashed-calibration', name: 'calibration', status: 'done', trashed: false, results: [] },
       { id: 'demo-trial-trashed-neutral', name: 'neutral', status: 'done', trashed: false, results: [] }
     ]
+  },
+  {
+    id: 'demo-session-trashed-trials',
+    sessionName: 'Demo session with trashed trials',
+    meta: { sessionName: 'Demo session with trashed trials' },
+    name: 'Demo Subject',
+    subject: 'demo-subject-1',
+    subject_id: 'demo-subject-1',
+    subject_name: 'Demo Subject',
+    user: 'demo-user-id',
+    created_at: '2026-05-08T14:00:00Z',
+    trials_count: 2,
+    isMono: false,
+    public: false,
+    trashed: false,
+    qrcode: qrDataUrl('demo-session-trashed-trials'),
+    trials: [
+      { id: 'demo-trial-recycle-walk', name: 'walk_recycle', status: 'done', trashed: true, results: [] },
+      { id: 'demo-trial-recycle-squat', name: 'squat_recycle', status: 'done', trashed: true, results: [] },
+      { id: 'demo-trial-recycle-kept', name: 'kept_trial', status: 'done', trashed: false, results: [] }
+    ]
   }
 ]
 

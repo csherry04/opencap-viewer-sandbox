@@ -519,21 +519,46 @@ export default {
             Vue.set(this.selected.trials, index, data);
         }
     },
+    getRecycleBinTrials(session) {
+      if (!session || !session.trials) {
+        return []
+      }
+
+      return session.trashed
+        ? session.trials
+        : session.trials.filter(trial => trial.trashed)
+    },
+    syncSelectedSessionInRecycleBin() {
+      if (!this.selected) {
+        return
+      }
+
+      const recycleBinTrials = this.getRecycleBinTrials(this.selected)
+      const sessionIndex = this.trashed_sessions.findIndex(session => session.id === this.selected.id)
+
+      if (!this.selected.trashed && recycleBinTrials.length === 0) {
+        this.removeSessionFromRecycleBin(this.selected.id)
+        return
+      }
+
+      if (sessionIndex >= 0) {
+        Vue.set(this.trashed_sessions, sessionIndex, {
+          ...this.trashed_sessions[sessionIndex],
+          ...this.selected,
+          isMenuOpen: false,
+          trials_count: recycleBinTrials.length,
+        })
+      }
+    },
     async permanentRemoveTrial(trial) {
       try {
         if (this.selected && this.selected.trials) {
           const index = this.selected.trials.findIndex(x => x.id === trial.id);
           await axios.post(`/trials/${trial.id}/permanent_remove/`);
-          this.selected.trials.splice(index, 1);
-          // If session now has no trials, remove it from the left panel so it disappears without reload
-          if (this.selected.trials.length === 0) {
-            const sessionIndex = this.trashed_sessions.findIndex(s => s.id === this.selected.id);
-            if (sessionIndex >= 0) {
-              this.trashed_sessions.splice(sessionIndex, 1);
-              this.session_total = Math.max(0, this.session_total - 1);
-            }
-            this.selected = null;
+          if (index >= 0) {
+            this.selected.trials.splice(index, 1);
           }
+          this.syncSelectedSessionInRecycleBin()
         }
       } catch (error) {
         apiError(error)
@@ -543,6 +568,7 @@ export default {
       try {
         const { data } = await axios.post(`/trials/${trial.id}/restore/`);
         await this.updateTrialWithData(trial, data);
+        this.syncSelectedSessionInRecycleBin()
       } catch (error) {
         apiError(error)
       }
