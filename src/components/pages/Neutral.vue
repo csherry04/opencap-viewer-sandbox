@@ -512,6 +512,8 @@ export default {
       tempFilterFrequency: 'default',
       componentKey: 0,
       isAuditoryFeedbackEnabled: false,
+      timeoutID: null,
+      pollID: 0,
     };
   },
   created() {
@@ -622,6 +624,10 @@ export default {
       this.n_calibrated_cameras = res.data.data
     }
     this.loadSubjectsList(false)
+  },
+  beforeDestroy() {
+    this.pollID++
+    this.cancelPoll()
   },
   watch: {
     subject (newVal, oldVal) {
@@ -862,6 +868,8 @@ export default {
           }
 
           if (await this.$refs.observer.validate()) {
+            this.cancelPoll()
+            const pollID = ++this.pollID
             apiInfo("Recording...")
             this.lastPolledStatus = "";
             this.busy = true;
@@ -911,7 +919,7 @@ export default {
                 }
               );
               this.setTrialId(res.data.id);
-              this.pollStatus();
+              this.pollStatus(pollID);
             } catch (error) {
               apiError(error);
             }
@@ -919,13 +927,15 @@ export default {
         }
       }
     },
-    async pollStatus() {
+    async pollStatus(pollID = this.pollID) {
       try {
         const res = await axios.get(
           `/sessions/${this.session.id}/neutral_img/`
         );
+        if (pollID !== this.pollID) return
         switch (res.data.status) {
           case "done": {
+            this.cancelPoll()
             clearToastMessages()
             this.$router.push({
               name: "Session",
@@ -937,17 +947,21 @@ export default {
             break;
           }
           case "error": {
+            this.cancelPoll()
             const resTrial = await axios.get(`/trials/${this.trialId}/`);
+            if (pollID !== this.pollID) return
             clearToastMessages();
             apiErrorRes(resTrial, "Error in processing neutral pose");
             this.busy = false;
 
             const resStatus = await axios.get(`/sessions/${this.$route.params.id}/status/`, {})
+            if (pollID !== this.pollID) return
 
             this.n_cameras_connected = resStatus.data.n_cameras_connected
             this.n_videos_uploaded = resStatus.data.n_videos_uploaded
 
             const resCalibratedCameras = await axios.get(`/sessions/${this.$route.params.id}/get_n_calibrated_cameras/`, {})
+            if (pollID !== this.pollID) return
 
             this.n_calibrated_cameras = resCalibratedCameras.data.data
 
@@ -960,6 +974,7 @@ export default {
           }
           default: {
             const resStatus = await axios.get(`/sessions/${this.$route.params.id}/status/`, {})
+            if (pollID !== this.pollID) return
 
             this.n_videos_uploaded = resStatus.data.n_videos_uploaded
 
@@ -974,13 +989,20 @@ export default {
                 playNeutralFinishedSound()
             }
             this.lastPolledStatus = res.data.status;
-            window.setTimeout(this.pollStatus, 1000);
+            if (this.busy) this.timeoutID = window.setTimeout(() => this.pollStatus(pollID), 1000);
             break;
           }
         }
       } catch (error) {
+        if (pollID !== this.pollID) return
+        this.cancelPoll()
         apiError(error);
+        this.busy = false;
       }
+    },
+    cancelPoll() {
+      if (this.timeoutID) window.clearTimeout(this.timeoutID)
+      this.timeoutID = null
     },
     openAdvancedSettings() {
       this.advancedSettingsDialog = true;
